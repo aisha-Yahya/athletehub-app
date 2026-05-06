@@ -5,9 +5,112 @@ import '../../domain/repositories/chat_repository.dart';
 import '../../data/models/conversation_model.dart';
 import '../../data/models/message_model.dart';
 import '../../data/models/reaction_model.dart';
+import 'dart:async';
+import 'dart:convert';
+import '../../../../app_config.dart';
 
 class ChatProvider with ChangeNotifier {
   final ChatRepository repository;
+
+  // ============ نظام Polling للرسائل الفورية ============
+  Timer? _messagePollingTimer;
+  Timer? _conversationPollingTimer;
+  bool _isPollingMessages = false;
+
+  /// بدء المراقبة الدورية للرسائل الجديدة (كل 3 ثواني)
+  void startMessagePolling(int conversationId) {
+    stopMessagePolling(); // إيقاف أي مراقبة سابقة
+    debugPrint("🔄 بدء مراقبة الرسائل الجديدة للمحادثة: $conversationId");
+    
+    _messagePollingTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
+      if (_isPollingMessages) return; // تجنب التداخل
+      _isPollingMessages = true;
+      
+      try {
+        final newMessages = await repository.getMessages(conversationId, page: 1);
+        
+        if (newMessages.isNotEmpty && _activeConversationId == conversationId) {
+          bool hasNewMessages = false;
+          
+          for (final msg in newMessages) {
+            // إضافة الرسائل الجديدة فقط (التي لا توجد في القائمة الحالية)
+            if (!_messages.any((m) => m.id == msg.id) && msg.id > 0) {
+              _messages.insert(0, msg);
+              hasNewMessages = true;
+              debugPrint("✨ رسالة جديدة وصلت: ID=${msg.id}");
+            }
+          }
+          
+          if (hasNewMessages) {
+            // ترتيب الرسائل حسب الوقت (الأحدث أولاً)
+            _messages.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+            // إزالة التكرارات
+            final seen = <int>{};
+            _messages.removeWhere((m) => !seen.add(m.id));
+            
+            _updateLastMessageInConversation(conversationId, _messages.first);
+            notifyListeners();
+          }
+        }
+      } catch (e) {
+        // لا نطبع الخطأ حتى لا نزعج المستخدم
+      } finally {
+        _isPollingMessages = false;
+      }
+    });
+  }
+
+  /// إيقاف مراقبة الرسائل
+  void stopMessagePolling() {
+    _messagePollingTimer?.cancel();
+    _messagePollingTimer = null;
+    _isPollingMessages = false;
+  }
+
+  /// بدء مراقبة المحادثات الجديدة (كل 5 ثواني)
+  void startConversationPolling() {
+    _conversationPollingTimer?.cancel();
+    _conversationPollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
+      try {
+        final freshConversations = await repository.getConversations();
+        if (freshConversations.isNotEmpty) {
+          _conversations = freshConversations;
+          notifyListeners();
+        }
+      } catch (e) {
+        // صامت
+      }
+    });
+  }
+
+  /// إيقاف مراقبة المحادثات
+  void stopConversationPolling() {
+    _conversationPollingTimer?.cancel();
+    _conversationPollingTimer = null;
+  }
+
+  // ============ واجهات التوافق مع الكود القديم ============
+  
+  Future<void> initGlobalRealTimeConnection() async {
+    // استبدال بـ Polling للمحادثات
+    startConversationPolling();
+  }
+
+  Future<void> initRealTimeConnection(int conversationId) async {
+    // استبدال بـ Polling للرسائل
+    startMessagePolling(conversationId);
+  }
+
+  Future<void> disconnectRealTime() async {
+    stopMessagePolling();
+    debugPrint("🛑 تم إيقاف مراقبة الرسائل");
+  }
+
+  Future<void> disconnectAllRealTime() async {
+    stopMessagePolling();
+    stopConversationPolling();
+    debugPrint("🛑 تم إيقاف جميع المراقبات");
+  }
 
   ChatProvider({required this.repository});
 
@@ -65,6 +168,9 @@ Future<void> loadCurrentUser() async {
   final prefs = await SharedPreferences.getInstance();
   _currentUserId = prefs.getInt('user_id') ?? 1;
   notifyListeners();
+  
+  // تفعيل الاتصال العام بعد جلب معرّف المستخدم
+  initGlobalRealTimeConnection();
 }
 
   Future<void> fetchConversations() async {
@@ -117,6 +223,10 @@ Future<void> loadCurrentUser() async {
           avatar: _conversations[index].avatar,
         );
       }
+      
+      // بدء الاتصال اللحظي بعد تحميل الرسائل بنجاح
+      initRealTimeConnection(conversationId);
+      
     } catch (e) {
       debugPrint("Error fetching messages: $e");
     } finally {
@@ -385,6 +495,7 @@ Future<void> loadCurrentUser() async {
   void clearActiveConversation() {
     _activeConversationId = null;
     _messages = [];
+    disconnectRealTime();
   }
 
   Future<bool> updateConversation(int conversationId, {String? name, String? avatarPath}) async {

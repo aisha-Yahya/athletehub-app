@@ -566,6 +566,8 @@ class _ChatInputFieldState extends State<ChatInputField> {
                       decoration: const InputDecoration(
                         hintText: 'اكتب رسالة...',
                         border: InputBorder.none,
+                        focusedBorder: InputBorder.none,
+                        enabledBorder: InputBorder.none,
                         contentPadding: EdgeInsets.symmetric(horizontal: 10),
                       ),
                     ),

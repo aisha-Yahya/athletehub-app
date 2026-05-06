@@ -6,12 +6,17 @@ class AppConfig {
   static const String _localIp = '192.168.8.123';
 
   static String get baseUrl {
-    // نفضل استخدام localhost لأنه يعمل بشكل ممتاز مع adb reverse tcp:8000 tcp:8000
-    // إذا كنت تستخدم الواي فاي بدون كيبل، استبدل localhost بـ $_localIp
-    return 'http://localhost:8000';
+    // نستخدم IP الشبكة لكي يعمل Reverb و API بانسجام
+    return 'http://$_localIp:8000';
   }
 
   static String get apiBaseUrl => '$baseUrl/api/v1';
+
+  // إعدادات Laravel Reverb
+  static String get reverbHost => _localIp;
+  static const int reverbPort = 8080;
+  static const String reverbAppKey = 'athletehub-key'; // المفتاح من ملف .env في Laravel
+
 
   // بناء رابط كامل للملفات والصور
   static String mediaUrl(String? path) {
