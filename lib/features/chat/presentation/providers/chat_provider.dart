@@ -20,6 +20,7 @@ class ChatProvider with ChangeNotifier {
   /// بدء المراقبة الدورية للرسائل الجديدة (كل 3 ثواني)
   void startMessagePolling(int conversationId) {
     stopMessagePolling(); // إيقاف أي مراقبة سابقة
+    _activeConversationId = conversationId; // تعيين المحادثة النشطة
     debugPrint("🔄 بدء مراقبة الرسائل الجديدة للمحادثة: $conversationId");
     
     _messagePollingTimer = Timer.periodic(const Duration(seconds: 3), (_) async {
@@ -27,12 +28,21 @@ class ChatProvider with ChangeNotifier {
       _isPollingMessages = true;
       
       try {
+        // تحقق أن المحادثة النشطة لم تتغير قبل الطلب
+        if (_activeConversationId != conversationId) return;
+        
         final newMessages = await repository.getMessages(conversationId, page: 1);
         
-        if (newMessages.isNotEmpty && _activeConversationId == conversationId) {
+        // تحقق مرة أخرى بعد الطلب (ربما تغيرت المحادثة أثناء الانتظار)
+        if (_activeConversationId != conversationId) return;
+        
+        if (newMessages.isNotEmpty) {
           bool hasNewMessages = false;
           
           for (final msg in newMessages) {
+            // تأكد أن الرسالة تنتمي لنفس المحادثة النشطة
+            if (msg.conversationId != conversationId) continue;
+            
             // إضافة الرسائل الجديدة فقط (التي لا توجد في القائمة الحالية)
             if (!_messages.any((m) => m.id == msg.id) && msg.id > 0) {
               _messages.insert(0, msg);
@@ -49,6 +59,10 @@ class ChatProvider with ChangeNotifier {
             _messages.removeWhere((m) => !seen.add(m.id));
             
             _updateLastMessageInConversation(conversationId, _messages.first);
+            
+            // إرسال طلب للمقروئية مباشرة بما أن المستخدم فاتح المحادثة
+            repository.markAsRead(conversationId, messageId: _messages.first.id).catchError((_) => false);
+            
             notifyListeners();
           }
         }
@@ -74,6 +88,21 @@ class ChatProvider with ChangeNotifier {
       try {
         final freshConversations = await repository.getConversations();
         if (freshConversations.isNotEmpty) {
+          // تصفير العداد محلياً للمحادثة المفتوحة حالياً حتى لا يظهر الإشعار بالخطأ
+          for (int i = 0; i < freshConversations.length; i++) {
+            if (freshConversations[i].id == _activeConversationId) {
+              freshConversations[i] = ConversationModel(
+                id: freshConversations[i].id,
+                name: freshConversations[i].name,
+                type: freshConversations[i].type,
+                lastMessage: freshConversations[i].lastMessage,
+                participants: freshConversations[i].participants,
+                unreadCount: 0,
+                updatedAt: freshConversations[i].updatedAt,
+                avatar: freshConversations[i].avatar,
+              );
+            }
+          }
           _conversations = freshConversations;
           notifyListeners();
         }
@@ -425,7 +454,7 @@ Future<void> loadCurrentUser() async {
         type: _conversations[index].type,
         lastMessage: message,
         participants: _conversations[index].participants,
-        unreadCount: _conversations[index].unreadCount,
+        unreadCount: conversationId == _activeConversationId ? 0 : _conversations[index].unreadCount,
         updatedAt: message.createdAt,
         avatar: _conversations[index].avatar,
       );
@@ -493,9 +522,10 @@ Future<void> loadCurrentUser() async {
   }
 
   void clearActiveConversation() {
+    stopMessagePolling(); // إيقاف polling أولاً
     _activeConversationId = null;
     _messages = [];
-    disconnectRealTime();
+    debugPrint("🧹 تم مسح المحادثة النشطة وإيقاف المراقبة");
   }
 
   Future<bool> updateConversation(int conversationId, {String? name, String? avatarPath}) async {

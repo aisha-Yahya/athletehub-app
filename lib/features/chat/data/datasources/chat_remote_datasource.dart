@@ -288,4 +288,20 @@ class ChatRemoteDataSource {
       rethrow;
     }
   }
+
+  Future<List<dynamic>> getConversationEvents(int conversationId) async {
+    try {
+      final response = await dio.get(
+        '/events',
+        queryParameters: {'conversation_id': conversationId},
+      );
+      final responseData = response.data['data'] ?? response.data;
+      if (responseData is List) return responseData;
+      if (responseData is Map && responseData['data'] is List) return responseData['data'];
+      return [];
+    } catch (e) {
+      print('Error in getConversationEvents: $e');
+      return [];
+    }
+  }
 }

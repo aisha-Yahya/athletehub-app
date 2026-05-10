@@ -220,12 +220,17 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
                               _formatDate(conversation.updatedAt),
                               style: TextStyle(
                                 fontSize: 12,
-                                color: conversation.unreadCount > 0 ? const Color(0xFF25D366) : Colors.grey[500],
-                                fontWeight: conversation.unreadCount > 0 ? FontWeight.bold : FontWeight.normal,
+                                color: (conversation.unreadCount > 0 &&
+                                    conversation.lastMessage?.userId != chatProvider.currentUserId)
+                                    ? const Color(0xFF25D366) : Colors.grey[500],
+                                fontWeight: (conversation.unreadCount > 0 &&
+                                    conversation.lastMessage?.userId != chatProvider.currentUserId)
+                                    ? FontWeight.bold : FontWeight.normal,
                               ),
                             ),
                             const SizedBox(height: 4),
-                            if (conversation.unreadCount > 0)
+                            if (conversation.unreadCount > 0 &&
+                                conversation.lastMessage?.userId != chatProvider.currentUserId)
                               Container(
                                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                 decoration: const BoxDecoration(

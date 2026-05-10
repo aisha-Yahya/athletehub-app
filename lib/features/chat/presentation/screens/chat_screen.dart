@@ -24,13 +24,15 @@ class ChatScreen extends StatefulWidget {
 
 class _ChatScreenState extends State<ChatScreen> {
   final ScrollController _scrollController = ScrollController();
+  late final ChatProvider _chatProvider;
 
   @override
   void initState() {
     super.initState();
+    _chatProvider = context.read<ChatProvider>();
     _scrollController.addListener(_onScroll);
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      context.read<ChatProvider>().fetchMessages(widget.conversationId);
+      _chatProvider.fetchMessages(widget.conversationId);
     });
   }
 
@@ -47,6 +49,8 @@ class _ChatScreenState extends State<ChatScreen> {
   void dispose() {
     _scrollController.removeListener(_onScroll);
     _scrollController.dispose();
+    // تنظيف المحادثة النشطة عند الخروج لمنع تداخل الرسائل
+    _chatProvider.clearActiveConversation();
     super.dispose();
   }
 

@@ -17,4 +17,5 @@ abstract class ChatRepository {
   Future<bool> updateConversation(int conversationId, {String? name, String? avatarPath});
   Future<void> rsvpToEvent(int eventId, String status);
   Future<List<dynamic>> toggleReaction(int messageId, String reaction);
+  Future<List<dynamic>> getConversationEvents(int conversationId);
 }

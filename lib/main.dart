@@ -74,11 +74,10 @@ class MyApp extends StatelessWidget {
         brightness: Brightness.light,
       ),
       useMaterial3: true,
-      fontFamily: 'IBM Plex Sans Arabic',
+      fontFamily: 'Tahoma',
       fontFamilyFallback: const [
         'Segoe UI Emoji',
         'Apple Color Emoji',
-        'Noto Color Emoji',
       ],
       scaffoldBackgroundColor: const Color(0xFFEEF2F8),
       appBarTheme: const AppBarTheme(

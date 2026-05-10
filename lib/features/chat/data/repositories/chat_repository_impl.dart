@@ -82,4 +82,9 @@ class ChatRepositoryImpl implements ChatRepository {
   Future<List<dynamic>> toggleReaction(int messageId, String reaction) {
     return remoteDataSource.toggleReaction(messageId, reaction);
   }
+
+  @override
+  Future<List<dynamic>> getConversationEvents(int conversationId) {
+    return remoteDataSource.getConversationEvents(conversationId);
+  }
 }
