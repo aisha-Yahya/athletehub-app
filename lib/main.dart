@@ -7,6 +7,8 @@ import 'features/chat/data/repositories/chat_repository_impl.dart';
 import 'features/chat/presentation/providers/chat_provider.dart';
 import 'features/chat/presentation/screens/conversations_list_screen.dart';
 import 'features/auth/screens/login_screen.dart';
+import 'features/auth/presentation/providers/user_provider.dart';
+import 'main_scaffold.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -43,6 +45,7 @@ class MyApp extends StatelessWidget {
               ChatRepositoryImpl(remoteDataSource: remoteDataSource);
           return ChatProvider(repository: repository);
         }),
+        ChangeNotifierProvider(create: (_) => UserProvider()),
       ],
       child: MaterialApp(
         title: 'Athlete Hub',
@@ -61,7 +64,7 @@ class MyApp extends StatelessWidget {
 
   Widget _getInitialScreen() {
     if (initialToken != null && isProfileCompleted) {
-      return const ConversationsListScreen();
+      return const MainScaffold();
     }
     return const LoginScreen();
   }

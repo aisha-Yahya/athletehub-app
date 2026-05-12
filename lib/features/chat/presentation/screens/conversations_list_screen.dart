@@ -1,12 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'package:intl/intl.dart';
+import 'package:cached_network_image/cached_network_image.dart';
+import 'package:athletehub_app/app_config.dart';
 import '../providers/chat_provider.dart';
 import '../../data/models/conversation_model.dart';
 import 'chat_screen.dart';
-import 'create_conversation_screen.dart';
 import 'package:athletehub_app/app_router.dart';
-import 'package:athletehub_app/app_config.dart';
 
 class ConversationsListScreen extends StatefulWidget {
   const ConversationsListScreen({super.key});
@@ -16,15 +15,25 @@ class ConversationsListScreen extends StatefulWidget {
 }
 
 class _ConversationsListScreenState extends State<ConversationsListScreen> with RouteAware {
-  bool _isSearching = false;
   int _selectedFilterIndex = 0;
   final TextEditingController _searchController = TextEditingController();
-  String _searchQuery = '';
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    routeObserver.subscribe(this, ModalRoute.of(context) as PageRoute);
+    final route = ModalRoute.of(context);
+    if (route is PageRoute) {
+      routeObserver.subscribe(this, route);
+    }
+  }
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      await context.read<ChatProvider>().loadCurrentUser();
+      await context.read<ChatProvider>().fetchConversations();
+    });
   }
 
   @override
@@ -40,233 +49,205 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
   }
 
   @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) async {
-      await context.read<ChatProvider>().loadCurrentUser();
-      await context.read<ChatProvider>().fetchConversations();
-    });
-  }
-
-  String _formatDate(DateTime date) {
-    final now = DateTime.now();
-    final today = DateTime(now.year, now.month, now.day);
-    final yesterday = DateTime(now.year, now.month, now.day - 1);
-    final dateToCheck = DateTime(date.year, date.month, date.day);
-
-    if (dateToCheck == today) {
-      return DateFormat('HH:mm').format(date);
-    } else if (dateToCheck == yesterday) {
-      return 'أمس';
-    } else {
-      return DateFormat('dd/MM/yyyy').format(date);
-    }
-  }
-
-  @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: Colors.white,
-      appBar: AppBar(
-        elevation: 0,
-        backgroundColor: Colors.white,
-        foregroundColor: Colors.black87,
-        title: _isSearching
-            ? TextField(
-                controller: _searchController,
-                autofocus: true,
-                decoration: const InputDecoration(
-                  hintText: 'البحث...',
-                  border: InputBorder.none,
+    return Directionality(
+      textDirection: TextDirection.rtl,
+      child: Scaffold(
+        backgroundColor: const Color(0xFFF8F9FB),
+        body: SafeArea(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              // Header & Search
+              Padding(
+                padding: const EdgeInsets.only(top: 24, left: 20, right: 20, bottom: 16),
+                child: Row(
+                  children: [
+                    const Expanded(
+                      child: Text(
+                        'المجموعات',
+                        style: TextStyle(
+                          fontSize: 24,
+                          fontWeight: FontWeight.w900,
+                          color: Color(0xFF0F172A),
+                        ),
+                      ),
+                    ),
+                    Container(
+                      width: 48,
+                      height: 48,
+                      decoration: BoxDecoration(
+                        color: Colors.white,
+                        borderRadius: BorderRadius.circular(16),
+                        border: Border.all(color: const Color(0xFFF1F5F9)),
+                      ),
+                      child: const Icon(Icons.search, color: Colors.grey),
+                    ),
+                  ],
                 ),
-                style: const TextStyle(color: Colors.black87),
-                onChanged: (val) {
-                  setState(() {
-                    _searchQuery = val;
-                  });
-                },
-              )
-            : const Text('واتساب', style: TextStyle(fontWeight: FontWeight.bold, fontSize: 22)),
-        actions: [
-          IconButton(
-            icon: Icon(_isSearching ? Icons.close : Icons.search),
-            onPressed: () {
-              setState(() {
-                _isSearching = !_isSearching;
-                if (!_isSearching) {
-                  _searchController.clear();
-                  _searchQuery = '';
-                }
-              });
-            },
-          ),
-          IconButton(
-            icon: const Icon(Icons.more_vert),
-            onPressed: () {},
-          ),
-        ],
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () {
-          Navigator.push(
-            context,
-            MaterialPageRoute(builder: (_) => const CreateConversationScreen()),
-          );
-        },
-        backgroundColor: const Color(0xFF25D366),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
-        child: const Icon(Icons.chat, color: Colors.white),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 8.0),
-            child: Row(
-              children: [
-                _buildFilterChip('الكل', 0),
-                const SizedBox(width: 8),
-                _buildFilterChip('غير مقروءة', 1),
-                const SizedBox(width: 8),
-                _buildFilterChip('المجموعات', 2),
-              ],
-            ),
-          ),
-          Expanded(
-            child: Consumer<ChatProvider>(
-              builder: (context, chatProvider, child) {
-                if (chatProvider.isLoadingConversations) {
-                  return const Center(child: CircularProgressIndicator());
-                }
+              ),
 
-                var filteredConversations = chatProvider.conversations.where((c) {
-                  final name = c.getDisplayName(chatProvider.currentUserId).toLowerCase();
-                  return name.contains(_searchQuery.toLowerCase());
-                }).toList();
+              // Filter Chips
+              SizedBox(
+                height: 40,
+                child: ListView(
+                  scrollDirection: Axis.horizontal,
+                  padding: const EdgeInsets.symmetric(horizontal: 20),
+                  children: [
+                    _buildFilterChip('الكل', 0),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('مجموعاتي', 1),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('متاحة في خطتك', 2),
+                    const SizedBox(width: 8),
+                    _buildFilterChip('مقفلة 🔒', 3),
+                  ],
+                ),
+              ),
+              const SizedBox(height: 20),
 
-                if (_selectedFilterIndex == 1) {
-                  filteredConversations = filteredConversations.where((c) => c.unreadCount > 0).toList();
-                } else if (_selectedFilterIndex == 2) {
-                  filteredConversations = filteredConversations.where((c) => c.type == ConversationType.group).toList();
-                }
+              // Group List
+              Expanded(
+                child: Consumer<ChatProvider>(
+                  builder: (context, chatProvider, child) {
+                    if (chatProvider.isLoadingConversations) {
+                      return const Center(child: CircularProgressIndicator());
+                    }
 
-                if (filteredConversations.isEmpty) {
-                  return Center(child: Text(_searchQuery.isEmpty ? 'لا توجد محادثات بعد.' : 'لا توجد نتائج للبحث.'));
-                }
+                    final allConversations = chatProvider.conversations;
 
-                return RefreshIndicator(
-                  onRefresh: () => chatProvider.fetchConversations(),
-                  child: ListView.separated(
-                    itemCount: filteredConversations.length,
-                    separatorBuilder: (context, index) => const Divider(height: 1, indent: 80, endIndent: 16),
-                    itemBuilder: (context, index) {
-                      final conversation = filteredConversations[index];
-                      final isGroup = conversation.type == ConversationType.group;
-                      final displayName = conversation.getDisplayName(chatProvider.currentUserId);
-                      final lastMessage = conversation.lastMessage;
+                    // Apply filters
+                    List<ConversationModel> filteredConversations;
+                    if (_selectedFilterIndex == 1) {
+                      // مجموعاتي - groups only
+                      filteredConversations = allConversations
+                          .where((c) => c.type == ConversationType.group)
+                          .toList();
+                    } else {
+                      filteredConversations = allConversations;
+                    }
 
-                      return ListTile(
-                        contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
-                        leading: CircleAvatar(
-                          radius: 28,
-                          backgroundImage: (conversation.avatar != null)
-                              ? NetworkImage(AppConfig.mediaUrl(conversation.avatar))
-                              : null,
-                          backgroundColor: isGroup ? Colors.blue[100] : Colors.grey[200],
-                          child: conversation.avatar == null
-                              ? Icon(
-                                  isGroup ? Icons.group : Icons.person,
-                                  color: isGroup ? Colors.blue : Colors.grey[600],
-                                  size: 30,
-                                )
-                              : null,
-                        ),
-                        title: Text(
-                          displayName,
-                          style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 17),
-                        ),
-                        subtitle: Row(
+                    if (filteredConversations.isEmpty) {
+                      return Center(
+                        child: Column(
+                          mainAxisAlignment: MainAxisAlignment.center,
                           children: [
-                            if (lastMessage != null && lastMessage.userId == chatProvider.currentUserId) ...[
-                              Icon(
-                                lastMessage.status == 'seen' || lastMessage.status == 'read' || lastMessage.status == 'delivered'
-                                    ? Icons.done_all
-                                    : Icons.check,
-                                size: 16,
-                                color: lastMessage.status == 'seen' || lastMessage.status == 'read'
-                                    ? Colors.blue
-                                    : Colors.grey[500],
-                              ),
-                              const SizedBox(width: 4),
-                            ],
-                            Expanded(
-                              child: Text(
-                                lastMessage?.content ?? (isGroup ? 'مجموعة جديدة' : 'محادثة جديدة'),
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: TextStyle(
-                                  color: Colors.grey[600],
-                                  fontSize: 14,
-                                ),
-                              ),
+                            Icon(Icons.group_outlined, size: 64, color: Colors.grey[300]),
+                            const SizedBox(height: 16),
+                            Text(
+                              'لا توجد مجموعات بعد',
+                              style: TextStyle(color: Colors.grey[500], fontSize: 16),
+                            ),
+                            const SizedBox(height: 16),
+                            ElevatedButton(
+                              onPressed: () => chatProvider.fetchConversations(),
+                              child: const Text('تحديث'),
                             ),
                           ],
                         ),
-                        trailing: Column(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          crossAxisAlignment: CrossAxisAlignment.end,
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Text(
-                              _formatDate(conversation.updatedAt),
-                              style: TextStyle(
-                                fontSize: 12,
-                                color: (conversation.unreadCount > 0 &&
-                                    conversation.lastMessage?.userId != chatProvider.currentUserId)
-                                    ? const Color(0xFF25D366) : Colors.grey[500],
-                                fontWeight: (conversation.unreadCount > 0 &&
-                                    conversation.lastMessage?.userId != chatProvider.currentUserId)
-                                    ? FontWeight.bold : FontWeight.normal,
-                              ),
-                            ),
-                            const SizedBox(height: 4),
-                            if (conversation.unreadCount > 0 &&
-                                conversation.lastMessage?.userId != chatProvider.currentUserId)
-                              Container(
-                                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                                decoration: const BoxDecoration(
-                                  color: Color(0xFF25D366),
-                                  shape: BoxShape.circle,
-                                ),
-                                child: Text(
-                                  '${conversation.unreadCount}',
-                                  style: const TextStyle(
-                                    color: Colors.white,
-                                    fontSize: 11,
-                                    fontWeight: FontWeight.bold,
+                      );
+                    }
+
+                    return RefreshIndicator(
+                      onRefresh: () => chatProvider.fetchConversations(),
+                      child: ListView.separated(
+                        padding: const EdgeInsets.symmetric(horizontal: 20),
+                        itemCount: filteredConversations.length,
+                        separatorBuilder: (context, index) => const Divider(height: 1, color: Color(0xFFF1F5F9)),
+                        itemBuilder: (context, index) {
+                          final conversation = filteredConversations[index];
+                          final title = conversation.getDisplayName(chatProvider.currentUserId);
+                          final membersCount = conversation.participants.length;
+                          final isGroup = conversation.type == ConversationType.group;
+                          final avatarUrl = AppConfig.mediaUrl(conversation.avatar);
+                          final colors = [
+                            const Color(0xFFFEF3C7),
+                            const Color(0xFFE0F2FE),
+                            const Color(0xFFFCE7F3),
+                            const Color(0xFFE0E7FF),
+                            const Color(0xFFDCFCE7),
+                            const Color(0xFFFEF9C3),
+                          ];
+
+                          return _buildGroupListItem(
+                            title: title,
+                            subtitle: isGroup 
+                                ? '$membersCount عضو'
+                                : (conversation.lastMessage?.content ?? 'محادثة جديدة'),
+                            avatarUrl: avatarUrl,
+                            isGroup: isGroup,
+                            bgColor: colors[index % colors.length],
+                            isJoined: true,
+                            isLocked: false,
+                            onTap: () {
+                              Navigator.push(
+                                context,
+                                MaterialPageRoute(
+                                  builder: (_) => ChatScreen(
+                                    conversationId: conversation.id,
+                                    title: title,
                                   ),
                                 ),
-                              ),
-                          ],
-                        ),
-                        onTap: () {
-                          Navigator.push(
-                            context,
-                            MaterialPageRoute(
-                              builder: (_) => ChatScreen(
-                                conversationId: conversation.id,
-                                title: displayName,
-                              ),
-                            ),
+                              );
+                            },
                           );
                         },
-                      );
-                    },
+                      ),
+                    );
+                  },
+                ),
+              ),
+
+              // Bottom Banner
+              Padding(
+                padding: const EdgeInsets.all(20),
+                child: Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  decoration: BoxDecoration(
+                    color: const Color(0xFFEFF6FF),
+                    borderRadius: BorderRadius.circular(16),
                   ),
-                );
-              },
-            ),
+                  child: Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: const Color(0xFF2563EB),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: const Icon(Icons.star, color: Colors.white, size: 24),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            const Text(
+                              'افتح المزيد من المجموعات',
+                              style: TextStyle(
+                                color: Color(0xFF1E3A8A),
+                                fontWeight: FontWeight.bold,
+                                fontSize: 14,
+                              ),
+                            ),
+                            Text(
+                              'ترقية خطتك للوصول لجميع المجموعات',
+                              style: TextStyle(
+                                color: Colors.blue[600],
+                                fontSize: 12,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                      const Icon(Icons.arrow_back, color: Color(0xFF1E3A8A), size: 16),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
-        ],
+        ),
       ),
     );
   }
@@ -280,17 +261,133 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
         });
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+        alignment: Alignment.center,
+        padding: const EdgeInsets.symmetric(horizontal: 20),
         decoration: BoxDecoration(
-          color: isSelected ? const Color(0xFFE8F5E9) : Colors.grey[200],
+          color: isSelected ? const Color(0xFF2563EB) : const Color(0xFFF1F5F9),
           borderRadius: BorderRadius.circular(20),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: isSelected ? const Color(0xFF25D366) : Colors.grey[700],
-            fontWeight: isSelected ? FontWeight.bold : FontWeight.normal,
+            color: isSelected ? Colors.white : Colors.grey[700],
+            fontWeight: isSelected ? FontWeight.bold : FontWeight.w600,
+            fontSize: 13,
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGroupListItem({
+    required String title,
+    required String subtitle,
+    required String avatarUrl,
+    required bool isGroup,
+    required Color bgColor,
+    required bool isJoined,
+    required bool isLocked,
+    required VoidCallback onTap,
+  }) {
+    return InkWell(
+      onTap: onTap,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(vertical: 16),
+        child: Row(
+          children: [
+            // Icon / Avatar
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: bgColor,
+                borderRadius: BorderRadius.circular(16),
+                image: avatarUrl.isNotEmpty
+                    ? DecorationImage(
+                        image: CachedNetworkImageProvider(avatarUrl),
+                        fit: BoxFit.cover,
+                      )
+                    : null,
+              ),
+              child: avatarUrl.isEmpty
+                  ? Center(
+                      child: Text(isGroup ? '👥' : '💬', style: const TextStyle(fontSize: 28)),
+                    )
+                  : null,
+            ),
+            const SizedBox(width: 16),
+            
+            // Text & Badges
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: [
+                      Flexible(
+                        child: Text(
+                          title,
+                          style: const TextStyle(
+                            fontWeight: FontWeight.bold,
+                            fontSize: 16,
+                            color: Color(0xFF1E293B),
+                          ),
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                      ),
+                      if (isJoined) ...[
+                        const SizedBox(width: 8),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFDCFCE7),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: const Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text('منضم', style: TextStyle(color: Color(0xFF166534), fontSize: 10, fontWeight: FontWeight.bold)),
+                              SizedBox(width: 2),
+                              Icon(Icons.check, color: Color(0xFF166534), size: 10),
+                            ],
+                          ),
+                        ),
+                      ],
+                    ],
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    subtitle,
+                    style: TextStyle(
+                      fontSize: 12,
+                      color: Colors.grey[500],
+                    ),
+                  ),
+                  if (isLocked) ...[
+                    const SizedBox(height: 4),
+                    const Row(
+                      children: [
+                        Icon(Icons.lock_outline, color: Color(0xFFB45309), size: 12),
+                        SizedBox(width: 4),
+                        Text(
+                          'يتطلب خطة احترافي',
+                          style: TextStyle(color: Color(0xFFB45309), fontSize: 11, fontWeight: FontWeight.bold),
+                        ),
+                      ],
+                    ),
+                  ]
+                ],
+              ),
+            ),
+            
+            // Arrow
+            const SizedBox(width: 8),
+            Icon(
+              isLocked ? Icons.lock_outline : Icons.arrow_back,
+              color: isLocked ? const Color(0xFFB45309) : const Color(0xFF3B82F6),
+              size: 20,
+            ),
+          ],
         ),
       ),
     );

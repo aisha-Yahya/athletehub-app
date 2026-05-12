@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app_config.dart';
+import 'package:provider/provider.dart';
+import '../presentation/providers/user_provider.dart';
 import '../../chat/presentation/screens/conversations_list_screen.dart';
 import 'complete_profile_screen.dart';
+import '../../../main_scaffold.dart';
 
 /// شاشة التحقق من OTP
 class OtpScreen extends StatefulWidget {
@@ -83,7 +86,8 @@ class _OtpScreenState extends State<OtpScreen> {
 
       final data = res.data['data'] ?? res.data;
       final token = data['token'];
-      final isProfileCompleted = data['is_profile_completed'] ?? false;
+      // نعتبر الملف مكتملاً إذا كان المستخدم مسجلاً مسبقاً، أو إذا أكده السيرفر
+      final isProfileCompleted = !widget.isNewUser || (data['is_profile_completed'] ?? false);
 
       if (token != null) {
         final prefs = await SharedPreferences.getInstance();
@@ -97,12 +101,16 @@ class _OtpScreenState extends State<OtpScreen> {
         }
 
         if (mounted) {
-          if (isProfileCompleted) {
-            // المستخدم أكمل ملفه → الصفحة الرئيسية
+          // إذا كان المستخدم ليس جديداً (مسجل مسبقاً) أو أكمل ملفه، يذهب للرئيسية
+          if (!widget.isNewUser || isProfileCompleted) {
+            // تحديث بيانات المستخدم فوراً
+            context.read<UserProvider>().loadAllData();
+            
+            // المستخدم أكمل ملفه أو مسجل مسبقاً → الصفحة الرئيسية
             Navigator.pushAndRemoveUntil(
               context,
               MaterialPageRoute(
-                  builder: (_) => const ConversationsListScreen()),
+                  builder: (_) => const MainScaffold()),
               (_) => false,
             );
           } else {

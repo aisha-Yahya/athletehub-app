@@ -2,7 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../../../app_config.dart';
+import 'package:provider/provider.dart';
+import '../presentation/providers/user_provider.dart';
 import '../../chat/presentation/screens/conversations_list_screen.dart';
+import '../../../main_scaffold.dart';
 
 /// شاشة إكمال الملف الشخصي — تظهر للمستخدمين الجدد فقط
 class CompleteProfileScreen extends StatefulWidget {
@@ -98,9 +101,12 @@ class _CompleteProfileScreenState extends State<CompleteProfileScreen> {
       await prefs.setBool('is_profile_completed', true);
 
       if (mounted) {
+        // تحديث بيانات المستخدم فوراً بعد إكمال الملف
+        context.read<UserProvider>().loadAllData();
+
         Navigator.pushAndRemoveUntil(
           context,
-          MaterialPageRoute(builder: (_) => const ConversationsListScreen()),
+          MaterialPageRoute(builder: (_) => const MainScaffold()),
           (_) => false,
         );
       }

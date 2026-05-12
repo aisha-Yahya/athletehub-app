@@ -32,7 +32,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> with SingleTickerProv
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this, initialIndex: 3);
+    _tabController = TabController(length: 3, vsync: this, initialIndex: 2);
     _loadConversationInfo();
     _loadEvents();
   }
@@ -300,7 +300,6 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> with SingleTickerProv
                 indicatorColor: const Color(0xFF6C3FA0),
                 indicatorWeight: 3,
                 tabs: const [
-                  Tab(icon: Icon(Icons.chat_bubble_outline), text: 'الدردشة'),
                   Tab(icon: Icon(Icons.event), text: 'الأحداث'),
                   Tab(icon: Icon(Icons.people_outline), text: 'الأعضاء'),
                   Tab(icon: Icon(Icons.info_outline), text: 'المعلومات'),
@@ -312,7 +311,6 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> with SingleTickerProv
         body: TabBarView(
           controller: _tabController,
           children: [
-            _buildChatTab(),
             _buildEventsTab(),
             _buildMembersTab(iAmAdmin, provider),
             _buildInfoTab(iAmAdmin),
@@ -386,47 +384,7 @@ class _GroupInfoScreenState extends State<GroupInfoScreen> with SingleTickerProv
     );
   }
 
-  // ============ Tab 1: Chat ============
-  Widget _buildChatTab() {
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.chat_bubble_outline, size: 64, color: Colors.grey[300]),
-            const SizedBox(height: 16),
-            const Text('فتح الدردشة', style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 8),
-            Text('اضغط للانتقال إلى محادثة المجموعة', style: TextStyle(color: Colors.grey[600])),
-            const SizedBox(height: 24),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(
-                    builder: (_) => ChatScreen(
-                      conversationId: widget.conversationId,
-                      title: widget.title,
-                    ),
-                  ),
-                );
-              },
-              icon: const Icon(Icons.chat, color: Colors.white),
-              label: const Text('فتح الدردشة', style: TextStyle(color: Colors.white)),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: const Color(0xFF6C3FA0),
-                padding: const EdgeInsets.symmetric(horizontal: 32, vertical: 12),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  // ============ Tab 2: Events ============
+  // ============ Tab 1: Events ============
   Widget _buildEventsTab() {
     if (_isLoadingEvents) {
       return const Center(child: CircularProgressIndicator());
