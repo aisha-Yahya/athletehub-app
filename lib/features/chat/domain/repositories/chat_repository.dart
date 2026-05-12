@@ -3,7 +3,8 @@ import '../../data/models/message_model.dart';
 
 abstract class ChatRepository {
   Future<List<dynamic>> getUsers();
-  Future<List<ConversationModel>> getConversations();
+  Future<List<ConversationModel>> getConversations({bool all = false});
+  Future<bool> joinConversation(int conversationId);
   Future<ConversationModel> createConversation(List<int> participantIds, {String? name, bool isGroup = false, String? avatarPath});
   Future<List<MessageModel>> getMessages(int conversationId, {int page = 1});
   Future<MessageModel> sendMessage(int conversationId, String content, {String? type, String? filePath, int? replyToId, void Function(int, int)? onSendProgress});

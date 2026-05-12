@@ -12,6 +12,7 @@ class ConversationModel {
   final int unreadCount;
   final DateTime updatedAt;
   final String? avatar;
+  final bool isJoined;
 
   ConversationModel({
     required this.id,
@@ -22,6 +23,7 @@ class ConversationModel {
     this.unreadCount = 0,
     required this.updatedAt,
     this.avatar,
+    this.isJoined = true,
   });
 
   factory ConversationModel.fromJson(Map<String, dynamic> json) {
@@ -39,6 +41,7 @@ class ConversationModel {
       unreadCount: json['unread_count'] ?? 0,
       updatedAt: DateTime.parse(json['updated_at']),
       avatar: json['avatar'],
+      isJoined: json['is_joined'] ?? true,
     );
   }
 
@@ -52,6 +55,7 @@ class ConversationModel {
       'unread_count': unreadCount,
       'updated_at': updatedAt.toIso8601String(),
       'avatar': avatar,
+      'is_joined': isJoined,
     };
   }
 

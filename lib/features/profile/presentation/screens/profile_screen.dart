@@ -8,8 +8,24 @@ import 'package:athletehub_app/features/profile/presentation/screens/subscriptio
 import 'package:athletehub_app/features/chat/presentation/providers/chat_provider.dart';
 import 'package:dio/dio.dart';
 
-class ProfileScreen extends StatelessWidget {
+class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
+
+  @override
+  State<ProfileScreen> createState() => _ProfileScreenState();
+}
+
+class _ProfileScreenState extends State<ProfileScreen> {
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final userProvider = context.read<UserProvider>();
+      if (userProvider.userProfile == null && !userProvider.isLoading) {
+        userProvider.loadAllData();
+      }
+    });
+  }
 
   Future<void> _logout(BuildContext context) async {
     try {
@@ -42,8 +58,8 @@ class ProfileScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = context.watch<UserProvider>();
-    final chatProvider = context.watch<ChatProvider>();
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
     final user = userProvider.userProfile;
 
     if (userProvider.isLoading && user == null) {
@@ -53,19 +69,28 @@ class ProfileScreen extends StatelessWidget {
     }
 
     if (user == null) {
-      // Trigger data load if not already loading
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        userProvider.loadAllData();
-      });
-      return const Scaffold(
-        body: Center(child: CircularProgressIndicator()),
+      return Scaffold(
+        body: Center(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              const Icon(Icons.error_outline, size: 60, color: Colors.grey),
+              const SizedBox(height: 16),
+              const Text('حدث خطأ في تحميل البيانات'),
+              const SizedBox(height: 16),
+              ElevatedButton(
+                onPressed: () => userProvider.loadAllData(),
+                child: const Text('إعادة المحاولة'),
+              )
+            ],
+          ),
+        ),
       );
     }
 
     final String name = user['name'] ?? '';
     final String username = user['username'] ?? '';
     final List skills = user['skills'] ?? [];
-    final int groupsCount = chatProvider.conversations.length;
     final subscription = userProvider.activeSubscription;
     final String planName = subscription?['plan']?['name'] ?? 'مجانية';
 
@@ -120,7 +145,8 @@ class ProfileScreen extends StatelessWidget {
                       mainAxisAlignment: MainAxisAlignment.spaceBetween,
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Column(
+                        Expanded(
+                        child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             Text(
@@ -152,6 +178,8 @@ class ProfileScreen extends StatelessWidget {
                               ),
                           ],
                         ),
+                        ),
+                        const SizedBox(width: 12),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 8),
                           decoration: BoxDecoration(
@@ -199,9 +227,18 @@ class ProfileScreen extends StatelessWidget {
                         );
                       },
                     ),
-                    _buildMenuItem(Icons.person_outline, 'مجموعاتي', subtitle: '$groupsCount مجموعة'),
-                    _buildMenuItem(Icons.notifications_none_outlined, 'الإشعارات'),
-                    _buildMenuItem(Icons.star_border, 'لوحة المشرف', subtitle: groupsCount > 0 ? chatProvider.conversations.first.name ?? 'Muscat Runners' : 'Muscat Runners'),
+                    Consumer<ChatProvider>(
+                      builder: (context, chatProvider, _) {
+                        final int groupsCount = chatProvider.conversations.length;
+                        return Column(
+                          children: [
+                            _buildMenuItem(Icons.person_outline, 'مجموعاتي', subtitle: '$groupsCount مجموعة'),
+                            _buildMenuItem(Icons.notifications_none_outlined, 'الإشعارات'),
+                            _buildMenuItem(Icons.star_border, 'لوحة المشرف', subtitle: groupsCount > 0 ? chatProvider.conversations.first.name ?? 'Muscat Runners' : 'Muscat Runners'),
+                          ],
+                        );
+                      },
+                    ),
 
                     const SizedBox(height: 32),
 
@@ -224,6 +261,8 @@ class ProfileScreen extends StatelessWidget {
           ),
         ),
       ),
+    );
+      },
     );
   }
 

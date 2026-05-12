@@ -29,8 +29,13 @@ class ChatRepositoryImpl implements ChatRepository {
   }
 
   @override
-  Future<List<ConversationModel>> getConversations() {
-    return remoteDataSource.getConversations();
+  Future<List<ConversationModel>> getConversations({bool all = false}) {
+    return remoteDataSource.getConversations(all: all);
+  }
+
+  @override
+  Future<bool> joinConversation(int conversationId) {
+    return remoteDataSource.joinConversation(conversationId);
   }
 
   @override

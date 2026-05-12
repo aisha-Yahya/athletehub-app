@@ -86,25 +86,26 @@ class ChatProvider with ChangeNotifier {
     _conversationPollingTimer?.cancel();
     _conversationPollingTimer = Timer.periodic(const Duration(seconds: 5), (_) async {
       try {
-        final freshConversations = await repository.getConversations();
+        final freshConversations = await repository.getConversations(all: _isShowingAll);
         if (freshConversations.isNotEmpty) {
-          // تصفير العداد محلياً للمحادثة المفتوحة حالياً حتى لا يظهر الإشعار بالخطأ
-          for (int i = 0; i < freshConversations.length; i++) {
-            if (freshConversations[i].id == _activeConversationId) {
-              freshConversations[i] = ConversationModel(
-                id: freshConversations[i].id,
-                name: freshConversations[i].name,
-                type: freshConversations[i].type,
-                lastMessage: freshConversations[i].lastMessage,
-                participants: freshConversations[i].participants,
-                unreadCount: 0,
-                updatedAt: freshConversations[i].updatedAt,
-                avatar: freshConversations[i].avatar,
-              );
+          // مقارنة بسيطة: إذا كان عدد المحادثات أو معرّف آخر رسالة قد تغير
+          bool hasChanges = freshConversations.length != _conversations.length;
+          
+          if (!hasChanges) {
+            for (int i = 0; i < freshConversations.length; i++) {
+              if (freshConversations[i].id != _conversations[i].id ||
+                  freshConversations[i].lastMessage?.id != _conversations[i].lastMessage?.id ||
+                  freshConversations[i].unreadCount != _conversations[i].unreadCount) {
+                hasChanges = true;
+                break;
+              }
             }
           }
-          _conversations = freshConversations;
-          notifyListeners();
+
+          if (hasChanges) {
+            _conversations = freshConversations;
+            notifyListeners();
+          }
         }
       } catch (e) {
         // صامت
@@ -145,6 +146,9 @@ class ChatProvider with ChangeNotifier {
 
   List<ConversationModel> _conversations = [];
   List<ConversationModel> get conversations => _conversations;
+  
+  bool _isShowingAll = false;
+  bool get isShowingAll => _isShowingAll;
 
   List<MessageModel> _messages = [];
   List<MessageModel> get messages => _messages;
@@ -202,18 +206,41 @@ Future<void> loadCurrentUser() async {
   initGlobalRealTimeConnection();
 }
 
-  Future<void> fetchConversations() async {
-    _isLoadingConversations = true;
-    notifyListeners();
+  Future<void> fetchConversations({bool all = false}) async {
+    _isShowingAll = all;
+    // فقط نظهر شاشة التحميل إذا كانت القائمة فارغة لتجنب الوميض (flickering)
+    final wasEmpty = _conversations.isEmpty;
+    if (wasEmpty) {
+      _isLoadingConversations = true;
+      notifyListeners();
+    }
 
     try {
-      _conversations = await repository.getConversations();
-    } catch (e) {
-      _errorMessage = "حدث خطأ أثناء جلب المحادثات";
-      debugPrint("Error fetching conversations: $e");
-    } finally {
+      final freshConversations = await repository.getConversations(all: all);
+      _conversations = freshConversations;
       _isLoadingConversations = false;
       notifyListeners();
+    } catch (e) {
+      debugPrint("Error fetching conversations: $e");
+      // فقط نعيد البناء إذا كنا في حالة تحميل (شاشة فارغة)
+      if (wasEmpty) {
+        _isLoadingConversations = false;
+        notifyListeners();
+      }
+    }
+  }
+
+  Future<bool> joinConversation(int conversationId) async {
+    try {
+      final success = await repository.joinConversation(conversationId);
+      if (success) {
+        // تحديث القائمة بعد الانضمام لتظهر كمحادثة منضم إليها
+        await fetchConversations(all: false);
+      }
+      return success;
+    } catch (e) {
+      debugPrint("Error joining conversation: $e");
+      return false;
     }
   }
 

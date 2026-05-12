@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/chat_provider.dart';
 import 'chat_screen.dart';
 import 'package:image_picker/image_picker.dart';
+import 'dart:io';
 
 class CreateConversationScreen extends StatefulWidget {
   const CreateConversationScreen({super.key});
@@ -75,12 +76,23 @@ class _CreateConversationScreenState extends State<CreateConversationScreen> {
     final provider = context.read<ChatProvider>();
     
     try {
+      // Check if avatar file exists before sending
+      String? validAvatarPath;
+      if (_isGroup && _avatarPath != null) {
+        final file = File(_avatarPath!);
+        if (await file.exists()) {
+          validAvatarPath = _avatarPath;
+        } else {
+          debugPrint('Avatar file not found, creating group without avatar');
+        }
+      }
+
       // Call API to create conversation
       final newConv = await provider.repository.createConversation(
         _selectedUserIds.toList().toSet().toList(),
         isGroup: _isGroup,
         name: _isGroup ? _nameController.text.trim() : null,
-        avatarPath: _isGroup ? _avatarPath : null,
+        avatarPath: validAvatarPath,
       );
 
       // Refresh list
@@ -147,7 +159,7 @@ class _CreateConversationScreenState extends State<CreateConversationScreen> {
                     onTap: _pickAvatar,
                     child: CircleAvatar(
                       radius: 30,
-                      backgroundImage: _avatarPath != null ? NetworkImage(_avatarPath!) : null,
+                      backgroundImage: _avatarPath != null ? FileImage(File(_avatarPath!)) : null,
                       child: _avatarPath == null ? const Icon(Icons.camera_alt) : null,
                     ),
                   ),

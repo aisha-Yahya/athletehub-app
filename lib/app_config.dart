@@ -3,7 +3,7 @@ import 'package:flutter/foundation.dart' show kIsWeb;
 class AppConfig {
   // عنوان IP الكمبيوتر على الشبكة المحلية
   // غيّري هذا إلى عنوان IP جهازك (استخدمي ipconfig في CMD)
-  static const String _localIp = '192.168.8.123';
+  static const String _localIp = '127.0.0.1';
 
   static String get baseUrl {
     // نستخدم IP الشبكة لكي يعمل Reverb و API بانسجام

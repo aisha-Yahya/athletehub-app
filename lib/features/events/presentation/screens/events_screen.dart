@@ -41,7 +41,8 @@ class _EventsScreenState extends State<EventsScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = context.watch<UserProvider>();
+    return Consumer<UserProvider>(
+      builder: (context, userProvider, child) {
     final events = userProvider.myEvents;
     final now = DateTime.now();
 
@@ -94,6 +95,8 @@ class _EventsScreenState extends State<EventsScreen> {
         ),
       ),
     );
+      },
+    );
   }
 
   Widget _buildEmptyState(String message) {
@@ -135,6 +138,7 @@ class _EventsScreenState extends State<EventsScreen> {
       final color = isUpcoming ? dateColors[index % dateColors.length] : pastColor;
 
       return Padding(
+        key: ValueKey('event_card_${event['id'] ?? index}'),
         padding: const EdgeInsets.only(bottom: 16),
         child: GestureDetector(
           onTap: () {

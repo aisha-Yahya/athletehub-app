@@ -5,6 +5,7 @@ import 'package:athletehub_app/app_config.dart';
 import '../providers/chat_provider.dart';
 import '../../data/models/conversation_model.dart';
 import 'chat_screen.dart';
+import 'create_conversation_screen.dart';
 import 'package:athletehub_app/app_router.dart';
 
 class ConversationsListScreen extends StatefulWidget {
@@ -45,7 +46,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
 
   @override
   void didPopNext() {
-    context.read<ChatProvider>().fetchConversations();
+    context.read<ChatProvider>().fetchConversations(all: _selectedFilterIndex == 0);
   }
 
   @override
@@ -54,6 +55,18 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
       textDirection: TextDirection.rtl,
       child: Scaffold(
         backgroundColor: const Color(0xFFF8F9FB),
+        floatingActionButton: FloatingActionButton(
+          onPressed: () {
+            Navigator.push(
+              context,
+              MaterialPageRoute(
+                builder: (_) => const CreateConversationScreen(),
+              ),
+            );
+          },
+          backgroundColor: const Color(0xFF2563EB),
+          child: const Icon(Icons.group_add, color: Colors.white),
+        ),
         body: SafeArea(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -116,15 +129,13 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
 
                     final allConversations = chatProvider.conversations;
 
-                    // Apply filters
-                    List<ConversationModel> filteredConversations;
+                    // Apply local filters if needed (e.g. searching or specific sub-filters)
+                    List<ConversationModel> filteredConversations = allConversations;
+                    
                     if (_selectedFilterIndex == 1) {
-                      // مجموعاتي - groups only
-                      filteredConversations = allConversations
-                          .where((c) => c.type == ConversationType.group)
-                          .toList();
-                    } else {
-                      filteredConversations = allConversations;
+                       // If we are in 'My Groups' tab, we might still want to see private chats or just groups?
+                       // Based on user request, this tab shows joined groups.
+                       filteredConversations = allConversations.where((c) => c.isJoined).toList();
                     }
 
                     if (filteredConversations.isEmpty) {
@@ -149,7 +160,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
                     }
 
                     return RefreshIndicator(
-                      onRefresh: () => chatProvider.fetchConversations(),
+                      onRefresh: () => chatProvider.fetchConversations(all: _selectedFilterIndex == 0),
                       child: ListView.separated(
                         padding: const EdgeInsets.symmetric(horizontal: 20),
                         itemCount: filteredConversations.length,
@@ -170,6 +181,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
                           ];
 
                           return _buildGroupListItem(
+                            key: ValueKey('conv_${conversation.id}'),
                             title: title,
                             subtitle: isGroup 
                                 ? '$membersCount عضو'
@@ -177,9 +189,37 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
                             avatarUrl: avatarUrl,
                             isGroup: isGroup,
                             bgColor: colors[index % colors.length],
-                            isJoined: true,
+                            isJoined: conversation.isJoined,
+                            unreadCount: conversation.unreadCount,
                             isLocked: false,
-                            onTap: () {
+                            onTap: () async {
+                              if (!conversation.isJoined) {
+                                final confirm = await showDialog<bool>(
+                                  context: context,
+                                  builder: (ctx) => AlertDialog(
+                                    title: const Text('انضمام للمجموعة'),
+                                    content: Text('هل تريد الانضمام إلى $title؟'),
+                                    actions: [
+                                      TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('إلغاء')),
+                                      ElevatedButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('انضمام')),
+                                    ],
+                                  ),
+                                );
+                                
+                                if (confirm == true) {
+                                  final success = await chatProvider.joinConversation(conversation.id);
+                                  if (success && mounted) {
+                                    ScaffoldMessenger.of(context).showSnackBar(
+                                      const SnackBar(content: Text('تم الانضمام بنجاح')),
+                                    );
+                                    setState(() {
+                                      _selectedFilterIndex = 1;
+                                    });
+                                  }
+                                }
+                                return;
+                              }
+
                               Navigator.push(
                                 context,
                                 MaterialPageRoute(
@@ -259,6 +299,12 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
         setState(() {
           _selectedFilterIndex = index;
         });
+        // Fetch data based on filter
+        if (index == 0) {
+          context.read<ChatProvider>().fetchConversations(all: true);
+        } else {
+          context.read<ChatProvider>().fetchConversations(all: false);
+        }
       },
       child: Container(
         alignment: Alignment.center,
@@ -280,6 +326,7 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
   }
 
   Widget _buildGroupListItem({
+    Key? key, // <--- أضفنا هذا السطر
     required String title,
     required String subtitle,
     required String avatarUrl,
@@ -288,8 +335,10 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
     required bool isJoined,
     required bool isLocked,
     required VoidCallback onTap,
+    int unreadCount = 0,
   }) {
     return InkWell(
+      key: key, // <--- واستخدمناه هنا
       onTap: onTap,
       child: Padding(
         padding: const EdgeInsets.symmetric(vertical: 16),
@@ -380,13 +429,30 @@ class _ConversationsListScreenState extends State<ConversationsListScreen> with 
               ),
             ),
             
-            // Arrow
+            // Arrow or Unread Badge
             const SizedBox(width: 8),
-            Icon(
-              isLocked ? Icons.lock_outline : Icons.arrow_back,
-              color: isLocked ? const Color(0xFFB45309) : const Color(0xFF3B82F6),
-              size: 20,
-            ),
+            if (unreadCount > 0)
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: const BoxDecoration(
+                  color: Color(0xFFEF4444),
+                  shape: BoxShape.circle,
+                ),
+                child: Text(
+                  unreadCount > 99 ? '99+' : unreadCount.toString(),
+                  style: const TextStyle(
+                    color: Colors.white,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              )
+            else
+              Icon(
+                isLocked ? Icons.lock_outline : Icons.arrow_back,
+                color: isLocked ? const Color(0xFFB45309) : const Color(0xFF3B82F6),
+                size: 20,
+              ),
           ],
         ),
       ),

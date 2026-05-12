@@ -30,44 +30,45 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final chatProvider = context.watch<ChatProvider>();
-    final userProvider = context.watch<UserProvider>();
-
-    if (userProvider.isLoading && userProvider.userProfile == null) {
-      return const Scaffold(
-        backgroundColor: Color(0xFFF8F9FB),
-        body: Center(child: CircularProgressIndicator()),
-      );
-    }
-
-    final userName = userProvider.userProfile?['name'] ?? 'رياضي';
-    final groupsCount = chatProvider.conversations.length;
-    final eventsCount = userProvider.myEvents.length;
-    final streak = userProvider.streakCount;
-
     return Scaffold(
       backgroundColor: const Color(0xFFF8F9FB),
       body: SafeArea(
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _buildHeader(userName),
-              const SizedBox(height: 24),
-              _buildStatsRow(groupsCount, eventsCount, streak),
-              const SizedBox(height: 24),
-              _buildSubscriptionCard(userProvider.activeSubscription),
-              const SizedBox(height: 32),
-              _buildSectionTitle('مجموعاتك', 'كل المجموعات ←'),
-              const SizedBox(height: 16),
-              _buildGroupsList(chatProvider),
-              const SizedBox(height: 32),
-              _buildSectionTitle('أحداثك القادمة', 'الكل ←'),
-              const SizedBox(height: 16),
-              _buildEventsList(userProvider),
-            ],
-          ),
+        child: Consumer<UserProvider>(
+          builder: (context, userProvider, child) {
+            if (userProvider.isLoading && userProvider.userProfile == null) {
+              return const Center(child: CircularProgressIndicator());
+            }
+
+            final userName = userProvider.userProfile?['name'] ?? 'رياضي';
+            final eventsCount = userProvider.myEvents.length;
+            final streak = userProvider.streakCount;
+
+            return SingleChildScrollView(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  _buildHeader(userName),
+                  const SizedBox(height: 24),
+                  Consumer<ChatProvider>(
+                    builder: (context, chatProvider, _) => _buildStatsRow(chatProvider.conversations.length, eventsCount, streak),
+                  ),
+                  const SizedBox(height: 24),
+                  _buildSubscriptionCard(userProvider.activeSubscription),
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('مجموعاتك', 'كل المجموعات ←'),
+                  const SizedBox(height: 16),
+                  Consumer<ChatProvider>(
+                    builder: (context, chatProvider, _) => _buildGroupsList(chatProvider),
+                  ),
+                  const SizedBox(height: 32),
+                  _buildSectionTitle('أحداثك القادمة', 'الكل ←'),
+                  const SizedBox(height: 16),
+                  _buildEventsList(userProvider),
+                ],
+              ),
+            );
+          },
         ),
       ),
     );
@@ -265,6 +266,7 @@ class _HomeScreenState extends State<HomeScreen> {
           final avatarUrl = AppConfig.mediaUrl(group.avatar);
 
           return Padding(
+            key: ValueKey('home_group_${group.id}'),
             padding: const EdgeInsets.only(left: 16),
             child: GestureDetector(
               onTap: () {
@@ -392,6 +394,7 @@ class _HomeScreenState extends State<HomeScreen> {
         final title = event['title'] ?? 'حدث';
 
         return Padding(
+          key: ValueKey('home_event_${event['id'] ?? event.hashCode}'),
           padding: const EdgeInsets.only(bottom: 16.0),
           child: GestureDetector(
             onTap: () {

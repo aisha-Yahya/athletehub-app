@@ -20,9 +20,6 @@ class _ExploreScreenState extends State<ExploreScreen> {
 
   @override
   Widget build(BuildContext context) {
-    final userProvider = context.watch<UserProvider>();
-    final chatProvider = context.watch<ChatProvider>();
-
     return Directionality(
       textDirection: TextDirection.rtl,
       child: Scaffold(
@@ -91,20 +88,20 @@ class _ExploreScreenState extends State<ExploreScreen> {
                     style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: Color(0xFF1E293B)),
                   ),
                   const SizedBox(height: 16),
-                  _buildSportsCategories(userProvider),
+                  Consumer<UserProvider>(builder: (context, userProvider, _) => _buildSportsCategories(userProvider)),
                   const SizedBox(height: 28),
                 ],
 
                 // مجموعاتك
                 _buildSectionTitle('المجموعات', ''),
                 const SizedBox(height: 16),
-                _buildRealGroups(context, chatProvider),
+                Consumer<ChatProvider>(builder: (context, chatProvider, _) => _buildRealGroups(context, chatProvider)),
                 const SizedBox(height: 28),
 
                 // أحداثك
                 _buildSectionTitle('الأحداث', ''),
                 const SizedBox(height: 16),
-                _buildRealEvents(userProvider),
+                Consumer<UserProvider>(builder: (context, userProvider, _) => _buildRealEvents(userProvider)),
                 const SizedBox(height: 20),
               ],
             ),
@@ -232,6 +229,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
           final avatarUrl = AppConfig.mediaUrl(group.avatar);
 
           return Padding(
+            key: ValueKey('explore_group_${group.id}'),
             padding: EdgeInsets.only(left: index < groups.length - 1 ? 16 : 0),
             child: GestureDetector(
               onTap: () {
@@ -348,6 +346,7 @@ class _ExploreScreenState extends State<ExploreScreen> {
         final title = event['title'] ?? 'حدث';
 
         return Padding(
+          key: ValueKey('explore_event_${event['id'] ?? title}'),
           padding: const EdgeInsets.only(bottom: 12),
           child: GestureDetector(
             onTap: () {

@@ -26,9 +26,12 @@ class ChatRemoteDataSource {
     ));
   }
 
-  Future<List<ConversationModel>> getConversations() async {
+  Future<List<ConversationModel>> getConversations({bool all = false}) async {
     try {
-      final response = await dio.get('/conversations');
+      final response = await dio.get(
+        '/conversations',
+        queryParameters: {'all': all ? 'true' : 'false'},
+      );
       // Laravel returns paginated: {success: true, data: {current_page: 1, data: [...]}}
       final responseData = response.data['data'] ?? response.data;
       List<dynamic> items;
@@ -42,6 +45,16 @@ class ChatRemoteDataSource {
       return items.map((e) => ConversationModel.fromJson(e)).toList();
     } catch (e) {
       print('Error in getConversations: $e');
+      rethrow;
+    }
+  }
+
+  Future<bool> joinConversation(int conversationId) async {
+    try {
+      await dio.post('/conversations/$conversationId/join');
+      return true;
+    } catch (e) {
+      print('Error in joinConversation: $e');
       rethrow;
     }
   }
